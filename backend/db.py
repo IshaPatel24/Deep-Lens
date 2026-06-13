@@ -4,7 +4,10 @@ import os
 import time
 from typing import List, Dict, Any
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "deeplens.db")
+# In serverless environments (Vercel), the filesystem is read-only except /tmp
+_local_db = os.path.join(os.path.dirname(os.path.abspath(__file__)), "deeplens.db")
+_is_serverless = os.environ.get("VERCEL") or not os.access(os.path.dirname(_local_db), os.W_OK)
+DB_PATH = "/tmp/deeplens.db" if _is_serverless else _local_db
 
 def init_db():
     """Initializes tables for session storage and evaluations."""

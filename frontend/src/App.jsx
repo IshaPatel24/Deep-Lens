@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE } from './config';
 import { Sparkles, History, BarChart2, Compass, LayoutGrid, Clock, ChevronRight, Search, FileDown } from 'lucide-react';
 import QueryInput from './components/QueryInput';
 import AgentTraceSidebar from './components/AgentTraceSidebar';
@@ -25,7 +26,7 @@ export default function App() {
 
   const fetchHistory = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/history');
+      const response = await fetch(`${API_BASE}/api/history`);
       if (response.ok) {
         const data = await response.json();
         setHistory(data);
@@ -51,65 +52,86 @@ export default function App() {
     setActiveTab('console');
 
     try {
-      const response = await fetch('http://localhost:8000/api/research', {
+      // Use the combined POST+SSE endpoint (works on both local dev and Vercel serverless)
+      const response = await fetch(`${API_BASE}/api/research/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query })
       });
-      
+
       if (!response.ok) {
-        throw new Error("HTTP error starting research");
+        throw new Error(`HTTP ${response.status} — failed to start research stream`);
       }
-      
-      const { session_id } = await response.json();
-      setCurrentSessionId(session_id);
 
-      // Start EventSource connection
-      const es = new EventSource(`http://localhost:8000/api/research/stream/${session_id}`);
-      
-      es.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        if (msg.heartbeat) return;
-        
-        // Append log to list
-        setTraceLogs((prev) => [...prev, msg]);
+      // Read SSE events from the fetch response body stream
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-        if (msg.agent === 'DeepLens System') {
-          if (msg.status === 'completed') {
-            setCurrentReport(msg.details.report);
-            setCurrentVerifiedData(msg.details.verified_data);
-            setCurrentSources(msg.details.sources);
-            setCurrentDiscardedCount(msg.details.discarded_count);
-            setIsLoading(false);
-            es.close();
-            
-            // Fire premium completion confetti!
-            import('canvas-confetti').then((confetti) => {
-              confetti.default({
-                particleCount: 150,
-                spread: 80,
-                origin: { y: 0.6 },
-                colors: ['#00D8F6', '#9F7AEA', '#5A67D8', '#ED64A6']
-              });
-            });
-            fetchHistory();
-          } else if (msg.status === 'failed') {
-            setIsLoading(false);
-            es.close();
-            alert(`Research pipeline encountered an error: ${msg.details}`);
+      const processStream = async () => {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split('\n\n');
+          buffer = parts.pop(); // Keep the incomplete last chunk
+
+          for (const part of parts) {
+            const line = part.trim();
+            if (!line.startsWith('data:')) continue;
+            const jsonStr = line.slice(5).trim();
+            if (!jsonStr) continue;
+
+            let msg;
+            try { msg = JSON.parse(jsonStr); } catch { continue; }
+            if (msg.heartbeat) continue;
+
+            // Extract session_id from first message
+            if (msg.session_id && !currentSessionId) {
+              setCurrentSessionId(msg.session_id);
+            }
+
+            setTraceLogs((prev) => [...prev, msg]);
+
+            if (msg.agent === 'DeepLens System') {
+              if (msg.status === 'completed') {
+                setCurrentSessionId(msg.session_id || '');
+                setCurrentReport(msg.details.report);
+                setCurrentVerifiedData(msg.details.verified_data);
+                setCurrentSources(msg.details.sources);
+                setCurrentDiscardedCount(msg.details.discarded_count);
+                setIsLoading(false);
+                import('canvas-confetti').then((confetti) => {
+                  confetti.default({
+                    particleCount: 150,
+                    spread: 80,
+                    origin: { y: 0.6 },
+                    colors: ['#00D8F6', '#9F7AEA', '#5A67D8', '#ED64A6']
+                  });
+                });
+                fetchHistory();
+                return;
+              } else if (msg.status === 'failed') {
+                setIsLoading(false);
+                alert(`Research pipeline encountered an error: ${msg.details}`);
+                return;
+              }
+            }
           }
         }
+        setIsLoading(false);
       };
 
-      es.onerror = (e) => {
-        console.error("SSE connection closed unexpectedly:", e);
-        es.close();
-      };
+      processStream().catch((e) => {
+        console.error('Stream error:', e);
+        setIsLoading(false);
+      });
 
     } catch (e) {
       console.error(e);
       setIsLoading(false);
-      alert("Failed to initiate research backend server. Please verify the FastAPI port 8000 is running.");
+      alert('Failed to connect to the research backend. Check that the server is running.');
     }
   };
 
@@ -122,7 +144,7 @@ export default function App() {
     setCurrentSources([]);
     
     try {
-      const response = await fetch(`http://localhost:8000/api/sessions/${sessionId}`);
+      const response = await fetch(`${API_BASE}/api/sessions/${sessionId}`);
       if (response.ok) {
         const data = await response.json();
         setCurrentQuery(data.query);

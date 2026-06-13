@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Award, ShieldAlert, Sparkles, RefreshCw, BarChart2, CheckCircle } from 'lucide-react';
+import { API_BASE } from '../config';
 
 export default function EvalDashboard() {
   const [evals, setEvals] = useState([]);
@@ -8,7 +9,7 @@ export default function EvalDashboard() {
 
   const fetchEvals = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/eval');
+      const response = await fetch(`${API_BASE}/api/eval`);
       if (response.ok) {
         const data = await response.json();
         setEvals(data);
@@ -27,7 +28,7 @@ export default function EvalDashboard() {
   const handleRunEval = async () => {
     setIsRunning(true);
     try {
-      const response = await fetch('http://localhost:8000/api/eval/run', { method: 'POST' });
+      const response = await fetch(`${API_BASE}/api/eval/run`, { method: 'POST' });
       if (response.ok) {
         // Poll for completion or explain to user
         alert("Evaluation benchmark triggered. It will run in the background. Please wait 10-15 seconds and refresh.");

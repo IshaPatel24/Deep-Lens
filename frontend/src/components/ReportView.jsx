@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Download, FileText, FileCode, CheckCircle, HelpCircle, AlertTriangle, ShieldCheck, ExternalLink } from 'lucide-react';
+import { API_BASE } from '../config';
 
 export default function ReportView({ report, verifiedData, sessionId, query }) {
   const [activeTab, setActiveTab] = useState('report'); // 'report' or 'claims'
 
   const handleExport = (format) => {
-    window.open(`http://localhost:8000/api/export/${sessionId}/${format}`, '_blank');
+    window.open(`${API_BASE}/api/export/${sessionId}/${format}`, '_blank');
   };
 
   // Group claims by confidence

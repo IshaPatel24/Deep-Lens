@@ -137,6 +137,73 @@ async def stream_research(session_id: str):
 
     return StreamingResponse(sse_generator(), media_type="text/event-stream")
 
+@app.post("/api/research/stream")
+async def research_stream_combined(request: ResearchRequest):
+    """
+    Combined SSE endpoint: receives query, runs pipeline, and streams all agent
+    events back in a single long-lived HTTP response. Required for Vercel serverless
+    where in-memory queues cannot be shared across separate request invocations.
+    """
+    session_id = str(uuid.uuid4())
+    query = request.query
+
+    async def generate():
+        # Use an asyncio Queue as a channel between pipeline and generator
+        queue: asyncio.Queue = asyncio.Queue()
+        sentinel = object()
+
+        async def publish_log(msg):
+            await queue.put(msg)
+
+        async def run_and_signal():
+            try:
+                state = await run_research_pipeline(query, session_id, publish_log)
+                save_session(
+                    session_id=session_id,
+                    query=query,
+                    report=state.report,
+                    verified_data=state.verified_data,
+                    sources=state.sources,
+                    discarded_count=state.discarded_sources_count
+                )
+            except Exception as e:
+                logger.error(f"Pipeline error for session {session_id}: {e}")
+                await queue.put({
+                    "session_id": session_id,
+                    "agent": "DeepLens System",
+                    "status": "failed",
+                    "details": str(e),
+                    "timestamp": __import__("time").time()
+                })
+            finally:
+                await queue.put(sentinel)
+
+        # Start pipeline as a concurrent task
+        pipeline_task = asyncio.create_task(run_and_signal())
+
+        try:
+            while True:
+                try:
+                    msg = await asyncio.wait_for(queue.get(), timeout=60.0)
+                    if msg is sentinel:
+                        break
+                    yield f"data: {json.dumps(msg)}\n\n"
+                    if msg.get("agent") == "DeepLens System" and msg.get("status") in ("completed", "failed"):
+                        break
+                except asyncio.TimeoutError:
+                    yield 'data: {"heartbeat": true}\n\n'
+        finally:
+            pipeline_task.cancel()
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",   # Disable nginx buffering
+        }
+    )
+
 @app.get("/api/history")
 async def list_history():
     """Returns all past research queries and summary stats."""
