@@ -20,13 +20,20 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="DeepLens Backend", version="1.0.0")
 
-# Setup CORS
+# Setup CORS — allow all origins so the Vercel frontend service can call the backend service
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:3000",
+        "https://*.vercel.app",
+        "*",  # broad fallback for custom domains
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Type", "Cache-Control", "X-Accel-Buffering"],
 )
 
 # In-memory stores for active sessions and queues
