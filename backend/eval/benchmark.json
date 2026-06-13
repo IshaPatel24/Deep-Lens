@@ -1,0 +1,29 @@
+[
+  {
+    "id": "q1",
+    "question": "What are the cell-level energy densities of prototype solid-state batteries in 2026?",
+    "ground_truth_facts": [
+      "Sulfide prototype cells reach cell-level energy densities of 480 Wh/kg to 510 Wh/kg.",
+      "This is roughly double the density of high-performance lithium-ion cells.",
+      "EV range increases by 60-80% allowing over 700 miles per charge."
+    ]
+  },
+  {
+    "id": "q2",
+    "question": "What are the comparative costs of solid-state vs lithium-ion battery packs in 2026?",
+    "ground_truth_facts": [
+      "Solid-state battery packs cost approximately $300/kWh in 2026.",
+      "Lithium Iron Phosphate (LFP) pack costs have stabilized at $80/kWh to $85/kWh.",
+      "Solid-state batteries are not expected to reach cost parity with lithium-ion until 2030."
+    ]
+  },
+  {
+    "id": "q3",
+    "question": "What are the environmental and safety risks of sulfide-based solid-state battery electrolytes?",
+    "ground_truth_facts": [
+      "Sulfide electrolytes react with ambient moisture to release highly toxic hydrogen sulfide gas.",
+      "H2S gas is both toxic and flammable, posing recycling risks.",
+      "Standard hydrometallurgical recycling facilities cannot process sulfide batteries without upgrades."
+    ]
+  }
+]
