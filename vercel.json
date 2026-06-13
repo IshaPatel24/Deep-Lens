@@ -3,8 +3,7 @@
     { "source": "/api/(.*)", "destination": "/api/index" }
   ],
   "functions": {
-    "api/index.py": {
-      "runtime": "python3.11",
+    "api/**/*.py": {
       "maxDuration": 60
     }
   }
