@@ -1,5 +1,6 @@
 # Python
 backend/venv/
+backend/requirements.txt   # keep locally for venv, but exclude from git so Vercel doesn't detect backend/ as a separate service
 __pycache__/
 *.pyc
 *.pyo
